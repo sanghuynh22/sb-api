@@ -34,7 +34,7 @@ app.use(express.json({ limit: "50mb" }));
 // 	res.setHeader("Access-Control-Allow-Origin", "http://localhost:3001");
 // 	next();
 // });
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/uploads", express.static(path.join(__dirname, "./uploads")));
 // Define API endpoints
 app.use("/api/users", usersRoutes);
 app.use("/api/status", statusRoutes);
