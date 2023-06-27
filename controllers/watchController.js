@@ -13,6 +13,7 @@ exports.createWatch = async (req, res) => {
 	const file = req.file.filename;
 	const title = req.body.title;
 	const user = req.body.user;
+	console.log("file real : ", req.file);
 	console.log("body : ", req.body);
 	console.log("file : ", file);
 	console.log("title : ", title);
