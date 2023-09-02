@@ -65,13 +65,13 @@ io.on("connection", (socket) => {
 			content: message,
 			createdAt: new Date(),
 		};
-		const newMessage = new Message(infoMessage);
-		newMessage.save();
-
 		const recipientSocket = await userSockets[recipientId];
 		if (recipientSocket) {
 			io.to(recipientSocket).emit("getMessages", infoMessage);
 		}
+		
+		const newMessage = new Message(infoMessage);
+		newMessage.save();	
 	});
 
 	socket.on("user-disconnect", async () => {
