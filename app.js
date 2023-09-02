@@ -29,13 +29,9 @@ app.use(
 app.use(bodyParser.json({ limit: "50mb" }));
 app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 app.use(express.json({ limit: "50mb" }));
-// Connect to MongoDB database
-// app.use((req, res, next) => {
-// 	res.setHeader("Access-Control-Allow-Origin", "http://localhost:3001");
-// 	next();
-// });
+
 app.use("/uploads", express.static(path.join(__dirname, "./uploads")));
-// Define API endpoints
+
 app.use("/api/users", usersRoutes);
 app.use("/api/status", statusRoutes);
 app.use("/api/story", storyRoutes);
@@ -56,89 +52,55 @@ io.on("connection", (socket) => {
 
 	socket.on("login", async (userId) => {
 		idUser = userId;
-		userSockets[userId] = socket.id;
-		Users.findByIdAndUpdate(
-			userId,
-			{ $set: { online: true, timeOff: null } },
-			{ new: true }
-		)
-			.then((user) => {
-				// Gửi sự kiện loginSuccess cho client-side
-				io.emit("loginSuccess");
+		userSockets[userId] = await socket.id;
+		io.emit("getOnlineUsers", userSockets);
 
-				console.log(`${user.username} đã đăng nhập`);
-			})
-			.catch((err) => {
-				console.log(err);
-			});
-
-		console.log(`User ${userId} logged in ${userSockets[userId]}`);
-	});
-
-	socket.on("getMessages", async ({ userId, recipientId }) => {
-		const messages = await Message.find({
-			$or: [
-				{ from: userId, to: recipientId },
-				{ from: recipientId, to: userId },
-			],
-		});
-		console.log("getMessage: ", messages);
-		console.log("userSockets[userId] : ", userSockets[userId]);
-		io.to(userSockets[userId]).emit("messageHistory", messages);
+		console.log(`User ${userId} logged in as socketID: ${userSockets[userId]}`);
 	});
 
 	socket.on("sendMessage", async ({ userId, recipientId, message }) => {
-		console.log("userId : ", userId);
-		const newMessage = new Message({
+		let infoMessage = {
 			from: userId,
 			to: recipientId,
 			content: message,
-		});
-		await newMessage.save();
-		console.log("newMessage: ", newMessage);
-		io.to(userSockets[userId]).emit("messageReceive", newMessage);
+			createdAt: new Date(),
+		};
+		const newMessage = new Message(infoMessage);
+		newMessage.save();
 
-		const recipientSocket = userSockets[recipientId];
+		const recipientSocket = await userSockets[recipientId];
 		if (recipientSocket) {
-			io.to(recipientSocket).emit("newMessage", newMessage);
-		} else {
-			// messageBuffer.push(newMessage);
+			io.to(recipientSocket).emit("getMessages", infoMessage);
 		}
 	});
 
 	socket.on("user-disconnect", async () => {
-		console.log(`Client ${socket.id} disconnected`);
-		await Users.findByIdAndUpdate(
-			idUser,
-			{ $set: { online: false, timeOff: new Date() } },
-			{ new: true }
-		)
-			.then((user) => {
-				// Gửi sự kiện disconnectSuccess cho client-side
-				io.emit("disconnectSuccess");
-
-				console.log(`${user.username} đã ngắt kết nối vào ${user.timeOff}`);
-			})
-			.catch((err) => {
-				console.log(err);
-			});
+		let keyDelete = await Object.keys(userSockets).find(
+			(key) => userSockets[key] == socket.id
+		);
+		delete userSockets[keyDelete];
+		io.emit("getOnlineUsers", userSockets);
 	});
 	socket.on("disconnect", async () => {
-		console.log(`Client ${socket.id} disconnected`);
-		await Users.findByIdAndUpdate(
-			idUser,
-			{ $set: { online: false, timeOff: new Date() } },
-			{ new: true }
-		)
-			.then((user) => {
-				// Gửi sự kiện disconnectSuccess cho client-side
-				io.emit("disconnectSuccess");
+		let keyDelete = await Object.keys(userSockets).find(
+			(key) => userSockets[key] == socket.id
+		);
+		delete userSockets[keyDelete];
+		io.emit("getOnlineUsers", userSockets);
 
-				console.log(`${user?.username} đã ngắt kết nối vào ${user?.timeOff}`);
-			})
-			.catch((err) => {
-				console.log(err);
-			});
+		// await Users.findByIdAndUpdate(
+		// 	idUser,
+		// 	{ $set: { online: false, timeOff: new Date() } },
+		// 	{ new: true }
+		// )
+		// 	.then((user) => {
+		// 		io.emit("disconnectSuccess");
+
+		// 		console.log(`${user?.username} đã ngắt kết nối vào ${user?.timeOff}`);
+		// 	})
+		// 	.catch((err) => {
+		// 		console.log(err);
+		// 	});
 	});
 });
 
